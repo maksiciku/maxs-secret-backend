@@ -22,6 +22,7 @@ const wss = new WebSocket.Server({ server });
 let cachedData = null;
 let lastFetched = 0;
 let previousPortfolioValue = null;
+let predictionHistory = [];
 
 // Helper: Fetch Market Data
 async function fetchMarketData() {
@@ -91,18 +92,23 @@ wss.on('connection', (ws) => {
 });
 
 // REST API: Fetch Market Data
-app.get('/api/market-data', async (req, res) => {
-    try {
-        const symbol = req.query.symbol || 'bitcoin';
-        const response = await axios.get(
-            `https://api.coingecko.com/api/v3/simple/price?ids=${symbol.toLowerCase()}&vs_currencies=usd`
-        );
-        res.json(response.data);
-    } catch (error) {
-        console.error('Error fetching market data:', error.message);
-        res.status(500).send('Error fetching market data');
+async function fetchMarketData() {
+    const now = Date.now();
+    // Cache data for 5 minutes instead of 1 minute
+    if (!cachedData || now - lastFetched > 300000) {
+        const trackedSymbols = ['bitcoin', 'ethereum', 'dogecoin', 'litecoin'];
+        const url = `https://api.coingecko.com/api/v3/simple/price?ids=${trackedSymbols.join(',')}&vs_currencies=usd`;
+
+        try {
+            const response = await axios.get(url);
+            cachedData = response.data;
+            lastFetched = now;
+        } catch (error) {
+            throw new Error(`Failed to fetch market data: ${error.message}`);
+        }
     }
-});
+    return cachedData;
+}
 
 // REST API: Generate Predictions
 app.get('/api/predict', async (req, res) => {
@@ -139,7 +145,7 @@ app.get('/api/predict', async (req, res) => {
             shortTermMA,
             longTermMA,
             prices,
-            timestamps, // Add timestamps to response
+            timestamps,
             actual: null,
             timestamp: new Date(),
         };
@@ -149,7 +155,7 @@ app.get('/api/predict', async (req, res) => {
         res.json(newPrediction);
     } catch (error) {
         console.error('Error generating prediction:', error.message);
-        res.status(500).send('Error generating prediction');
+        res.status(500).json({ error: 'Error generating prediction', details: error.message });
     }
 });
 
