@@ -14,7 +14,8 @@ app.use(cors());
 app.use(express.json());
 
 // WebSocket Server Setup
-const wss = new WebSocket.Server({ port: 5001 });
+const server = require('http').createServer(app);
+const wss = new WebSocket.Server({ server });
 let cachedData = null;
 let lastFetched = 0;
 let previousPortfolioValue = null;
@@ -45,6 +46,10 @@ function calculateChangePercentage(newVal, oldVal) {
 // WebSocket: Real-Time Data and Notifications
 wss.on('connection', (ws) => {
     console.log('Client connected to WebSocket');
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+    });
+    ws.send('Welcome to WebSocket server!');
 
     const sendUpdates = async () => {
         try {
@@ -203,7 +208,11 @@ app.get('/api/portfolio', async (req, res) => {
     }
 });
 
+app.get('/', (req, res) => {
+    res.send('Server is running!');
+});
+
 // Start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
