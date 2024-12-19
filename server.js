@@ -3,6 +3,7 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const WebSocket = require('ws');
+const http = require('http');
 
 dotenv.config();
 
@@ -13,9 +14,11 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// WebSocket Server Setup
-const server = require('http').createServer(app);
+// Create HTTP server and WebSocket server
+const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
+
+// Global variables for caching
 let cachedData = null;
 let lastFetched = 0;
 let previousPortfolioValue = null;
@@ -38,6 +41,7 @@ async function fetchMarketData() {
     return cachedData;
 }
 
+// Helper: Calculate Change Percentage
 function calculateChangePercentage(newVal, oldVal) {
     if (oldVal === null) return 0;
     return ((newVal - oldVal) / oldVal) * 100;
@@ -46,10 +50,12 @@ function calculateChangePercentage(newVal, oldVal) {
 // WebSocket: Real-Time Data and Notifications
 wss.on('connection', (ws) => {
     console.log('Client connected to WebSocket');
+
     ws.on('message', (message) => {
         console.log('Received:', message);
     });
-    ws.send('Welcome to WebSocket server!');
+
+    ws.send(JSON.stringify({ message: 'Welcome to WebSocket server!' }));
 
     const sendUpdates = async () => {
         try {
@@ -84,10 +90,7 @@ wss.on('connection', (ws) => {
     });
 });
 
-// REST API Endpoints
-let predictionHistory = [];
-
-// Fetch Market Data
+// REST API: Fetch Market Data
 app.get('/api/market-data', async (req, res) => {
     try {
         const symbol = req.query.symbol || 'bitcoin';
@@ -101,7 +104,7 @@ app.get('/api/market-data', async (req, res) => {
     }
 });
 
-// Generate Predictions
+// REST API: Generate Predictions
 app.get('/api/predict', async (req, res) => {
     const symbol = req.query.symbol || 'bitcoin';
 
@@ -150,6 +153,7 @@ app.get('/api/predict', async (req, res) => {
     }
 });
 
+// Helper: Calculate Moving Average
 function calculateMovingAverage(data, days) {
     if (data.length < days) return 0;
     const recentData = data.slice(-days);
@@ -157,7 +161,7 @@ function calculateMovingAverage(data, days) {
     return sum / days;
 }
 
-// Update Prediction Outcomes
+// REST API: Update Prediction Outcomes
 app.post('/api/actual', (req, res) => {
     const { id, actual } = req.body;
     const prediction = predictionHistory.find((p) => p.id === Number(id));
@@ -169,7 +173,7 @@ app.post('/api/actual', (req, res) => {
     }
 });
 
-// Accuracy Calculation
+// REST API: Calculate Accuracy
 app.get('/api/accuracy', (req, res) => {
     const oneWeekAgo = new Date();
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
@@ -190,7 +194,7 @@ app.get('/api/accuracy', (req, res) => {
     });
 });
 
-// Portfolio Tracker
+// REST API: Portfolio Tracker
 app.get('/api/portfolio', async (req, res) => {
     try {
         const symbols = req.query.symbols ? req.query.symbols.split(',') : ['bitcoin'];
@@ -208,6 +212,7 @@ app.get('/api/portfolio', async (req, res) => {
     }
 });
 
+// Root Endpoint
 app.get('/', (req, res) => {
     res.send('Server is running!');
 });
