@@ -11,7 +11,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors({ origin: process.env.FRONTEND_URL || 'https://maxs-secret-frontend.vercel.app', credentials: true }));
+const frontendURL = process.env.FRONTEND_URL || 'https://maxs-secret-frontend.vercel.app';
+app.use(cors({ origin: frontendURL, credentials: true }));
 app.use(express.json());
 
 // Create HTTP server and WebSocket server
@@ -59,13 +60,19 @@ function calculateChangePercentage(newVal, oldVal) {
 
 // WebSocket: Real-Time Data and Notifications
 wss.on('connection', (ws) => {
-    console.log('Client connected');
+    console.log('WebSocket client connected');
 
     ws.on('message', (message) => {
-        console.log('Received:', message);
+        console.log('Received message from client:', message);
     });
 
-    ws.send(JSON.stringify({ message: 'Welcome to WebSocket server!' }));
+    ws.on('error', (error) => {
+        console.error('WebSocket error:', error.message);
+    });
+
+    ws.on('close', () => {
+        console.log('WebSocket client disconnected');
+    });
 
     const sendUpdates = async () => {
         try {
@@ -83,21 +90,18 @@ wss.on('connection', (ws) => {
 
             previousPortfolioValue = portfolioValue;
         } catch (error) {
-            console.error('Error sending updates via WebSocket:', error.message);
+            console.error('Error sending WebSocket updates:', error.message);
         }
     };
 
-    const interval = setInterval(sendUpdates, 30000); // Updates every 30 seconds
+    const interval = setInterval(sendUpdates, 30000); // Send updates every 30 seconds
 
     ws.on('close', () => {
-        console.log('WebSocket client disconnected');
         clearInterval(interval);
     });
 });
 
-// REST API Endpoints
-
-// Fetch Market Data
+// REST API: Fetch Market Data
 app.get('/api/market-data', async (req, res) => {
     try {
         const symbol = req.query.symbol || 'bitcoin';
@@ -115,7 +119,7 @@ app.get('/api/market-data', async (req, res) => {
     }
 });
 
-// Generate Predictions
+// REST API: Generate Predictions
 app.get('/api/predict', async (req, res) => {
     const symbol = req.query.symbol || 'bitcoin';
 
@@ -176,5 +180,5 @@ app.get('/', (req, res) => {
 
 // Start Server
 server.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
 });
